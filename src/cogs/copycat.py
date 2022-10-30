@@ -1,8 +1,6 @@
 """CopyCat cog"""
 
 import interactions
-from isort import file
-import requests
 
 
 class PsuedoUser:
