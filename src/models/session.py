@@ -1,5 +1,7 @@
 """The pythonic class of the Translation Session"""
 
+from datetime import timedelta
+import datetime
 import interactions
 
 from models.user import PsuedoUser  # pylint: disable=import-error
@@ -20,6 +22,8 @@ class Session:
         self.guild_id: int | interactions.Snowflake = guild_id
         self.channel_id: int | interactions.Snowflake = channel_id
         self.accepted: bool = False
+        # an expiration date for the session using timedelta
+        self.expiration_date: timedelta = timedelta(days=1)
 
     # consructor method that takes in a dictionary and returns a Session object
     # @classmethod
@@ -32,6 +36,10 @@ class Session:
     #         session_dict["channel_id"],
     #     )
 
+    def convert_timedelta_to_datetime(self, in_td: timedelta) -> datetime.datetime:
+        """Convert a timedelta to a datetime"""
+        return datetime.datetime.now() + in_td
+
     def convert_to_dict(self) -> dict:
         """convert self to a dictiionary"""
         return {
@@ -40,6 +48,7 @@ class Session:
             "guild_id": int(self.guild_id),
             "channel_id": int(self.channel_id),
             "accepted": self.accepted,
+            "expiration_date": self.convert_timedelta_to_datetime(self.expiration_date),
         }
 
     def sync_session(self, database):
