@@ -8,10 +8,14 @@ import sys
 import interactions
 from dotenv import load_dotenv
 from interactions import MISSING
-
+from interactions.ext.wait_for import setup
+import pymongo
 from config import DEV_GUILD
 
 load_dotenv()
+
+
+# TODO: add a check to see if the database cannot connect
 
 
 # Instantiate environment variables
@@ -41,8 +45,19 @@ client = interactions.Client(
         status=interactions.StatusType.ONLINE,
     ),
     disable_sync=False,
+    default_scope=DEV_GUILD,
 )
+# Connect to the pymongo database
 
+
+"""Connect to the database"""
+# connect to the pymongo database using the environment variables
+pymongo_client = pymongo.MongoClient(os.environ.get("ATLAS_URI"))
+# get the database
+database = pymongo_client.server
+
+
+# setup(client)
 
 # BEGIN on_ready
 @client.event
@@ -68,5 +83,6 @@ for cog in cogs:
         print(_)
 
 # END cogs_dynamic_loader
+
 
 client.start()
