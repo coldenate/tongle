@@ -1,8 +1,10 @@
 """translator.py"""
 
+import asyncio
 from dotenv import dotenv_values
 import interactions
 from deep_translator import GoogleTranslator
+from models.user import User
 from permissions import Permissions  # pylint: disable=import-error
 
 
@@ -85,9 +87,28 @@ class Translator(interactions.Extension):
     )
     async def lang_input(self, ctx):
         """Translate a message"""
-        translated = GoogleTranslator(source="es", target="en").translate(
-            ctx.target.content
-        )
+        await ctx.defer()
+
+        # get user's configurated language
+        user = User(discord_user=ctx.author.user)
+        user.search_db()  # this will load the preferred language of the user
+
+        # if user doens't have one, prompt them to do so.
+        if user.preferred_lang is None:  # type: ignore
+            m = await ctx.channel.send(
+                f"Hey <@{ctx.author.user.id}>, you have not registered a preferred language!\n***Simply run `/settings preferred_language`***",
+            )
+            # delete this message after 20 seconds
+            await asyncio.sleep(20)
+            await m.delete()
+            return
+
+        # translate the message into their configured language
+
+        translated = GoogleTranslator(
+            source="auto", target=f"{user.preferred_lang}"
+        ).translate(ctx.target.content)
+
         embed = interactions.Embed(
             title="Click to view original message",
             description=translated,
@@ -106,11 +127,6 @@ class Translator(interactions.Extension):
             color=interactions.Color.fuchsia(),
         )
         await ctx.send(embeds=[embed])
-        # get user's configurated language
-
-        # if user doens't have one, prompt them to do so.
-
-        # translate the message into their configured language
 
 
 def setup(client):

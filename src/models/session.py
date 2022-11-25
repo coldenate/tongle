@@ -4,7 +4,7 @@ from datetime import timedelta
 import datetime
 import interactions
 
-from models.user import PsuedoUser  # pylint: disable=import-error
+from models.user import User  # pylint: disable=import-error
 
 
 class Session:
@@ -12,13 +12,13 @@ class Session:
 
     def __init__(
         self,
-        initiator: PsuedoUser,
-        receiver: PsuedoUser,
+        initiator: User,
+        receiver: User,
         guild_id: int | interactions.Snowflake,
         channel_id: int | interactions.Snowflake,
     ) -> None:
-        self.initiator: PsuedoUser = initiator
-        self.receiver: PsuedoUser = receiver
+        self.initiator: User = initiator
+        self.receiver: User | None = receiver
         self.guild_id: int | interactions.Snowflake = guild_id
         self.channel_id: int | interactions.Snowflake = channel_id
         self.accepted: bool = False

@@ -5,7 +5,7 @@ import interactions
 import pymongo
 from models.session import Session  # pylint: disable=import-error
 
-from models.user import PsuedoUser
+from models.user import User
 from tools.conversions import dict_to_session
 from tools.session_tools import get_session  # pylint: disable=import-error
 
@@ -39,10 +39,10 @@ class SessionManager(interactions.Extension):
     ):
         """Begin an active session"""
         # create a new PsuedoUser
-        author_user = PsuedoUser(
+        author_user = User(
             ctx.author.name, ctx.author.id
         )  # the user that was sending the command
-        target_user = PsuedoUser(user.username, user.id)
+        target_user = User(user.username, user.id)
         # register the webhook
         await author_user.register_webhook(self.client, ctx)
         # register the database
