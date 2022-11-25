@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["...", "python310Full"]
+nixPkgs = ["gcc", "python310Full"]
 
 
 [phases.install]
