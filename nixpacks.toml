@@ -1,0 +1,9 @@
+[phases.setup]
+nixPkgs = ["...", "python310Full"]
+
+
+[phases.install]
+cmds = ["curl -sSL https://install.python-poetry.org | python3 -", "poetry shell", "poetry install --no-interaction --no-ansi"]
+
+[start]
+cmd = "poetry shell && python3 src/main.py"
