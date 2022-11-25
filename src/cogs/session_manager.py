@@ -4,9 +4,9 @@ import os
 import interactions
 import pymongo
 from models.session import Session  # pylint: disable=import-error
-
+from datetime import datetime, timedelta
 from models.user import User
-from tools.conversions import dict_to_session
+
 from tools.session_tools import get_session  # pylint: disable=import-error
 
 
@@ -22,7 +22,11 @@ class SessionManager(interactions.Extension):
         self.client: interactions.Client = client
 
     # interactions.extension_command decorator that has an option called User that is set to User
-    @interactions.extension_command(
+    @interactions.extension_command(name="session")
+    async def session(self, ctx: interactions.CommandContext) -> None:
+        """Base command for session"""
+
+    @session.subcommand(
         name="start",
         description="Start a translation session",
         options=[
@@ -44,7 +48,32 @@ class SessionManager(interactions.Extension):
         )  # the user that was sending the command
         target_user = User(user.username, user.id)
         # register the webhook
+        # check if the user already has a webhook
+        for webhook in await ctx.channel.get_webhooks():
+            if ctx.author.user.username == webhook.name:
+                # check if the webhook exists as a session in the database
+                session_as_doc = database.sessions.find_one(
+                    {"initiator.user_id": int(ctx.author.id)}
+                )
+                if session_as_doc:
+                    # if so, check if it expired or not
+                    session = Session()
+                    if session.check_if_expired(session_as_doc):
+                        await webhook.delete()
+                        database.sessions.delete_one(
+                            {"initiator.user_id": int(ctx.author.id)}
+                        )
+                        # an expired session was found, so the webhook was deleted and the document was deleted
+                        continue
+                    elif session.check_if_expired(session_as_doc) is False:
+                        await ctx.send(
+                            ephemeral=True,
+                            content="You already have an active session. Please end it before starting a new one.",
+                        )
+                        return
+
         await author_user.register_webhook(self.client, ctx)
+
         # register the database
         # user.register_db()  # DEPRECATED
         # send a message to the user
@@ -70,15 +99,19 @@ class SessionManager(interactions.Extension):
     #         content=f"Registered {pseudo_user.name} in {ctx.channel_id}",
     #         ephemeral=True,
     #     )
-    @interactions.extension_command()
+    @session.subcommand()
     async def accept_session(self, ctx):
         """Accept a session"""
         # get the session from the database
-
-        session = get_session(target=ctx.author.id, database=database)
-        session = dict_to_session(session)
-
-        # check if the session exists
+        try:
+            session_as_dict = get_session(target=ctx.author.id, database=database)
+            session = Session()
+            session.dict_to_session(session_as_dict)
+        except TypeError:
+            await ctx.send(
+                "You do not have a session to accept! You can start on with /session start"
+            )
+            return
         if session is None:
             await ctx.send(
                 "You do not have a session to accept! You can start on with /session start"

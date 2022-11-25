@@ -34,7 +34,9 @@ class Settings(interactions.Extension):
         await ctx.send(
             "Select your preferred language",
             components=[
-                interactions.ActionRow.new(User.return_language_picker_selectMenu()[0]),
+                interactions.ActionRow.new(
+                    User.return_language_picker_select_menu()[0]
+                ),
                 interactions.ActionRow.new(
                     interactions.Button(
                         label="Can't find your language?",
@@ -70,8 +72,11 @@ class Settings(interactions.Extension):
             f"Your preferred language has been set to {selected_option}!",
             ephemeral=True,
         )
+
     @interactions.extension_modal("lang_modal")
-    async def lang_modal(self, ctx: interactions.CommandContext, text_input_response: str):
+    async def lang_modal(
+        self, ctx: interactions.CommandContext, text_input_response: str
+    ):
         """Set the user's preferred language"""
 
         # get the user
@@ -83,8 +88,6 @@ class Settings(interactions.Extension):
             f"Your preferred language has been set to {text_input_response}!",
             ephemeral=True,
         )
-
-
 
 
 def setup(client):

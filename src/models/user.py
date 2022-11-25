@@ -133,6 +133,14 @@ class User:
         # for the user_id, which is unique and won't change.
         self.populate_from_mongodb(doc)
 
+    # convert a dictionary to a PsuedoUser object
+    @classmethod
+    def dict_to_psuedo_user(cls, psuedo_user_dict):
+        """Convert a dictionary to a PsuedoUser object"""
+        return User(
+            user_id=psuedo_user_dict["user_id"], name=psuedo_user_dict["username"]
+        )
+
     @classmethod
     def return_language_picker_select_menu(cls) -> list[interactions.SelectMenu]:
         """returnt he language picker slecte menu :D"""
