@@ -6,12 +6,16 @@ ARG TOKEN
 ARG ATLAS_URI
 ARG DB_NAME
 
-RUN curl -sSL https://install.python-poetry.org | python3 -
+# RUN curl -sSL https://install.python-poetry.org | python3 -
+
+# ENV PATH="${PATH}:/root/.poetry/bin"
 
 WORKDIR .
 
 COPY . .
 
-RUN poetry install
+# RUN poetry install
 
-CMD ["poetry", "run", "python", "src/main.py"]
+RUN pip install -r requirements.txt
+
+ENTRYPOINT ["python src/main.py"]
