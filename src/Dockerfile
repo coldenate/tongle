@@ -10,7 +10,7 @@ ARG DB_NAME
 
 # ENV PATH="${PATH}:/root/.poetry/bin"
 
-WORKDIR .
+# WORKDIR .
 
 COPY . .
 
