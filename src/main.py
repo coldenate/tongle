@@ -46,6 +46,7 @@ client = interactions.Client(
     ),
     disable_sync=False,
     default_scope=DEV_GUILD,
+    intents=interactions.Intents.DEFAULT | interactions.Intents.GUILD_MESSAGE_CONTENT,
 )
 # Connect to the pymongo database
 

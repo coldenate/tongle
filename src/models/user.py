@@ -21,6 +21,7 @@ class User:
         user_id=None,
         discriminator=None,
         preferred_lang=None,
+        avatar_url=None,
         discord_user: interactions.User = None,  # type: ignore
     ) -> None:
         """Initialize the User."""
@@ -29,12 +30,14 @@ class User:
             user_id = int(discord_user.id)
             name = discord_user.username
             discriminator = discord_user.discriminator
+            avatar_url = discord_user.avatar_url
         self.name: str | None = name
         self.user_id: int | None | str = int(user_id)  # type: ignore
         # modifiables
         self.discriminator: str | None = discriminator
         # self.channel_id = channel_id # REMOVED because I want to make this a check instead o
         # f a hard set value (AFTER EACH SESSION IS ENDED, DELETE WEBHOOKS)
+        self.avatar_url: str | None = avatar_url
         self.preferred_lang: str | None = preferred_lang
         self.webhook_id = 0
 
@@ -42,7 +45,7 @@ class User:
     # @classmethod
     # def from_dict(cls, data: dict):
     #     """Create a PsuedoUser from a dictionary."""
-    #     return cls(data["name"], data["user_id"])
+    #     return cls(data["name"], data["user_id"]
 
     def __str__(self):
         return self.name
@@ -58,27 +61,32 @@ class User:
             "username": self.name,
             "discriminator": self.discriminator,
             "preferred_lang": self.preferred_lang,
+            "avatar_url": self.avatar_url,
         }
 
-    async def register_webhook(self, client, ctx):
-        """Register the PseudoUser by creating a webhook with interactions."""
+    def get_webhook(self, client: interactions.Client, channel: interactions.Channel):
+        """Get the webhook for the user."""
+        # Search the given channel for a webhook with the user's name. If it exists, return it. If not, create it.
+        for webhook in channel.webhooks:
+            if webhook.name == self.name:
+                return webhook
 
+        # if the webhook doesn't exist, create it.
+        return self.register_webhook(client, channel)
+
+    async def register_webhook(self, client, channel: interactions.Channel):
+        """Register the PseudoUser by creating a webhook with interactions."""
+        #TODO: Would here be a good timet o check for duplicates?
         user = await interactions.Webhook.create(
             client=client._http,  # pylint: disable=protected-access
-            channel_id=ctx.channel_id,
+            channel_id=channel.id,
             name=self.name,
         )
         user.id = self.webhook_id  # type: ignore
-        user.avatar = ctx.author.get_avatar_url()
+        return user
 
     def register_db(self) -> None:
         """Register the User by adding it to the database."""
-        # take the attributes of the PsuedoUser and add it to the database
-        # {
-        #   "user_id": 123456789,
-        #   "username": "username",
-        #   "discriminator": "1234",
-        #   "preferred_lang": "en",
 
         user = self.convert_to_dict()
 
@@ -86,10 +94,11 @@ class User:
         users.insert_one(user)
 
     def search_db(self):
-        """Search the database for the given user_id. returns the first document match"""
+        """Search the database for the given user_id. converts the document back into self"""
         users = database.users
         user = users.find_one({"user_id": int(self.user_id)})
-        self.populate_from_mongodb(user)
+        if user is not None:
+            self.populate_from_mongodb(user)
         return user
 
     @classmethod
@@ -118,6 +127,7 @@ class User:
     def populate_from_mongodb(self, doc) -> None:
         """Populate the User from a MongoDB document."""
         self.user_id = doc["user_id"]
+        # an error can occur here where
         self.name = doc["username"]
         self.discriminator = doc["discriminator"]
         self.preferred_lang = doc["preferred_lang"]
@@ -127,6 +137,17 @@ class User:
         ew user."""
         users = database.users
         new_doc = self.convert_to_dict()
+
+        # check if the user hasn't changed
+
+        old_doc = users.find_one({"user_id": int(self.user_id)})
+
+        if old_doc is None:
+            self.register_db()
+            return
+        if old_doc == new_doc:
+            return
+
         users.replace_one({"user_id": self.user_id}, new_doc)
         # find the user in the database
         doc = self.search_db()  # this is safe because we are searching
@@ -134,11 +155,16 @@ class User:
         self.populate_from_mongodb(doc)
 
     # convert a dictionary to a PsuedoUser object
+    # TODO: convert to a self method where it simply updates itself with a given dict
     @classmethod
-    def dict_to_psuedo_user(cls, psuedo_user_dict):
+    def dict_to_user(cls, user_dict):
         """Convert a dictionary to a PsuedoUser object"""
         return User(
-            user_id=psuedo_user_dict["user_id"], name=psuedo_user_dict["username"]
+            user_id=user_dict["user_id"],
+            name=user_dict["username"],
+            discriminator=user_dict["discriminator"],
+            preferred_lang=user_dict["preferred_lang"],
+            avatar_url=user_dict["avatar_url"],
         )
 
     @classmethod

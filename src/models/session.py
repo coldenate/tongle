@@ -24,7 +24,7 @@ class Session:
         guild_id: int | interactions.Snowflake = None,
         channel_id: int | interactions.Snowflake = None,
         accepted: bool = False,
-        expiration_date: timedelta = timedelta(days=1),
+        expiration_date: timedelta = timedelta(hours=2),
     ) -> None:
         self.initiator: User = initiator
         self.receiver: User | None = receiver
@@ -39,6 +39,11 @@ class Session:
         self.accepted: bool = accepted
         # an expiration date for the session using timedelta
         self.expiration_date: timedelta = expiration_date
+
+    def refresh_expiration_date(self, target_database):
+        """Refresh the expiration date of the session"""
+        self.expiration_date = datetime.now() + timedelta(hours=2)
+        self.sync_session(target_database)
 
     # consructor method that takes in a dictionary and returns a Session object
     # @classmethod
@@ -69,13 +74,21 @@ class Session:
 
     def convert_to_dict(self) -> dict:
         """convert self to a dictiionary"""
+        # if the expiration date is a timedelta, convert it to a datetime
+        if isinstance(self.expiration_date, timedelta):
+            self.expiration_date = self.convert_timedelta_to_datetime(
+                self.expiration_date
+            )
+        # if the expiration date is a datetime, do nothing
+        elif isinstance(self.expiration_date, datetime):
+            pass
         return {
             "initiator": self.initiator.convert_to_dict(),
             "receiver": self.receiver.convert_to_dict(),
             "guild_id": int(self.guild_id),
             "channel_id": int(self.channel_id),
             "accepted": self.accepted,
-            "expiration_date": self.convert_timedelta_to_datetime(self.expiration_date),
+            "expiration_date": self.expiration_date,
         }
 
     def sync_session(self, database):
@@ -103,11 +116,37 @@ class Session:
         #     "expiration_date"
         # ],  # will be a datetime object
         # accepted=session_dict["accepted"],
-        self.initiator = User.dict_to_psuedo_user(session_dict["initiator"])
-        self.receiver = User.dict_to_psuedo_user(session_dict["receiver"])
+
+        self.initiator = User.dict_to_user(session_dict["initiator"])
+        self.receiver = User.dict_to_user(session_dict["receiver"])
         self.guild_id = session_dict["guild_id"]
         self.channel_id = session_dict["channel_id"]
         self.expiration_date = session_dict[
             "expiration_date"
         ]  # will be a datetime object
         self.accepted = session_dict["accepted"]
+
+    def get_session(self, target, database):
+        """Get the session from the database. THIS METHOD WILL GET THE SESSION BY SEARCHING FOR MATCHING TARGET IDS VIA INITIATOR AND RECEIVER"""
+        sessions = database.sessions
+        session_as_doc = sessions.find_one({"initiator.user_id": int(target)})
+        if session_as_doc is None:
+            session_as_doc = sessions.find_one({"receiver.user_id": int(target)})
+        if session_as_doc is None:
+            return None
+        self.dict_to_session(session_as_doc)
+
+    def get_session_acceptor(self, target, database):
+        """Get the sessions the target user needs to accept. THIS METHOD WILL GET THE SESSION BY SEARCHING FOR MATCHING TARGET IDS VIA RECEIVER"""
+        sessions = database.sessions
+        session_as_doc = sessions.find_one({"receiver.user_id": int(target)})
+        if session_as_doc is None:
+            return None
+        self.dict_to_session(session_as_doc)
+
+    def get_other_user(self, given_id):
+        """Return the initiator or receiver that is not the given id"""
+        if self.initiator.user_id == given_id:
+            return self.receiver
+        if self.initiator.user_id != given_id:
+            return self.initiator

@@ -49,16 +49,20 @@ class Housekeeping(interactions.Extension):
         # if not found in database, register them
         if not presence_in_database:
             print("not found in database")
-            temp_user.register_db(ctx)
-            m = await ctx.channel.send(
-                f"Hey <@{ctx.author.user.id}>, you have not registered a preferred language!\n***Simply run `/settings preferred_language`***",
-            )
+            temp_user.register_db()
+            # m = await ctx.channel.send(
+            #     f"Hey <@{ctx.author.user.id}>, you have not registered a preferred language!\n***Simply run `/settings preferred_language`***",
+            # )
             # delete this message after 20 seconds
-            await asyncio.sleep(20)
-            await m.delete()
+            # await asyncio.sleep(20)
+            # await m.delete()
+        elif presence_in_database:
+            # update the user
+            temp_user.update_db()
 
 
 def setup(client):
     """Setup the housekeeping extension."""
     Housekeeping(client)
     print("Housekeeping extension loaded.")
+    

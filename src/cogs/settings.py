@@ -45,6 +45,7 @@ class Settings(interactions.Extension):
                     )
                 ),
             ],
+            ephemeral=True,
         )
 
     @interactions.extension_component("preferred_language_modal_spawn")
