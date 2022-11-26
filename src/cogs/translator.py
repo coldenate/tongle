@@ -30,13 +30,7 @@ class Translator(interactions.Extension):
     def __init__(self, client):
         self.client: interactions.Client = client
 
-
-    @interactions.extension_message_command(
-        name="translate",
-        default_member_permissions=interactions.Permissions(
-            Permissions.SEND_MESSAGES.value
-        ),
-    )
+    @interactions.extension_message_command(name="translate")
     async def lang_input(self, ctx):
         """Translate a message"""
         await ctx.defer()
@@ -78,7 +72,7 @@ class Translator(interactions.Extension):
             ),
             color=interactions.Color.fuchsia(),
         )
-        await ctx.send(embeds=[embed])
+        await ctx.send(embeds=[embed], ephemeral=True)
 
 
 def setup(client):
