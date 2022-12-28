@@ -6,7 +6,7 @@ authors = ["Nathan Solis <66754842+colderinit@users.noreply.github.com>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.11"
 deep-translator = "^1.8.3"
 python-dotenv = "^0.21.0"
 discord-py-interactions = "^4.3.4"
