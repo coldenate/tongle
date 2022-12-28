@@ -126,7 +126,7 @@ class Session:
         ]  # will be a datetime object
         self.accepted = session_dict["accepted"]
 
-    def get_session(self, target, database):
+    def get_session(self, target: int, database):
         """Get the session from the database. THIS METHOD WILL GET THE SESSION BY SEARCHING FOR MATCHING TARGET IDS VIA INITIATOR AND RECEIVER"""
         sessions = database.sessions
         session_as_doc = sessions.find_one({"initiator.user_id": int(target)})
@@ -150,3 +150,15 @@ class Session:
             return self.receiver
         if self.initiator.user_id != given_id:
             return self.initiator
+
+    async def delete(self, client):
+        """Deletes session from database, and deletes the webhooks associated with the initiator and receiever."""
+        # delete the webhooks
+        channel = await interactions.get(
+            client=client, obj=interactions.Channel, object_id=self.channel_id
+        )
+        await self.initiator.delete_webhook(client, channel)
+        await self.receiver.delete_webhook(client, channel)
+        # delete the session from the database
+        sessions = database.sessions
+        sessions.delete_one({"initiator.user_id": self.initiator.user_id})

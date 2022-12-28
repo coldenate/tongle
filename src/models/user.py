@@ -64,19 +64,28 @@ class User:
             "avatar_url": self.avatar_url,
         }
 
-    def get_webhook(self, client: interactions.Client, channel: interactions.Channel):
+    async def get_webhook(
+        self,
+        client: interactions.Client,
+        channel: interactions.Channel,
+        creation_fallback: bool = True,
+    ):
         """Get the webhook for the user."""
         # Search the given channel for a webhook with the user's name. If it exists, return it. If not, create it.
-        for webhook in channel.webhooks:
+
+        webhooks = await channel.get_webhooks()
+
+        for webhook in webhooks:
             if webhook.name == self.name:
                 return webhook
 
         # if the webhook doesn't exist, create it.
-        return self.register_webhook(client, channel)
+        if creation_fallback:
+            return self.register_webhook(client, channel)
 
     async def register_webhook(self, client, channel: interactions.Channel):
         """Register the PseudoUser by creating a webhook with interactions."""
-        #TODO: Would here be a good timet o check for duplicates?
+        # TODO: Would here be a good timet o check for duplicates?
         user = await interactions.Webhook.create(
             client=client._http,  # pylint: disable=protected-access
             channel_id=channel.id,
@@ -189,3 +198,11 @@ class User:
             ),
         ]
         return components
+
+    async def delete_webhook(self, client, channel: interactions.Channel) -> None:
+        """Delete the user's webhook."""
+        try:
+            webhook = await self.get_webhook(client, channel, creation_fallback=False)
+        except ValueError:
+            return False
+        await webhook.delete()

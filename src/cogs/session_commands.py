@@ -5,8 +5,8 @@ import interactions
 import pymongo
 from deep_translator import GoogleTranslator
 from models.session import Session  # pylint: disable=import-error
-from datetime import datetime, timedelta
-from models.user import User
+# from datetime import datetime, timedelta
+from models.user import User # pylint: disable=E0401
 
 
 pymongo_client = pymongo.MongoClient(os.environ.get("ATLAS_URI"))
@@ -14,7 +14,7 @@ pymongo_client = pymongo.MongoClient(os.environ.get("ATLAS_URI"))
 database = pymongo_client.server
 
 
-class SessionManager(interactions.Extension):
+class SessionCommands(interactions.Extension):
     """CopyCat cog to copy people's accounts!!! So scary!!!"""
 
     def __init__(self, client):
@@ -110,10 +110,10 @@ class SessionManager(interactions.Extension):
     #     )
 
     @session.subcommand()
-    async def accept_session(self, ctx):
+    async def accept(self, ctx):
         """Accept a session"""
         # get the session from the database
-        # TODO: Handle multiple sessions that can be accepted.
+        # TODO: If there are multiple sessions, respond with the Session Manager in accept mode.
         try:
             session = Session()
             session.get_session_acceptor(target=ctx.author.id, database=database)
@@ -128,6 +128,7 @@ class SessionManager(interactions.Extension):
                 "You do not have a session to accept! You can start on with /session start"
             )
             return
+
         # check if the session is already accepted
         if session.accepted:
             await ctx.send("This session has already been accepted!")
@@ -141,8 +142,39 @@ class SessionManager(interactions.Extension):
         session.sync_session(database=database)
         # send a message to the author
         await ctx.send(
-            f"Session accepted for {session.receiver.name}! You can now start translating!"
+            f"Session accepted for {session.receiver.name}! You can now start translating!",
+            ephemeral=True,
         )
+
+    @session.subcommand()
+    async def decline(self, ctx):
+        # TODO: If there are multiple sessions, respond with the Session Manager in decline mode.
+        """Decline a session"""
+        try:
+            session = Session()
+            session.get_session(ctx.author.id, database)
+        except TypeError:
+            await ctx.send(
+                "You do not have a session to decline! You can start on with /session start"
+            )
+            return
+        if session is None:
+            await ctx.send(
+                "You do not have a session to decline! You can start on with /session start"
+            )
+            return
+        # check if the user sending the command is the same user that initialized the session
+        if session.initiator.user_id == ctx.author.id:
+            await ctx.send(
+                "You are about to decline a session *you* started. Please do this by running the active session manager command.",
+                ephemeral=True,
+            )
+            return
+        # delete the session from the database
+
+        await session.delete(self.client)
+
+        await ctx.send("Session declined!", ephemeral=True)
 
     @interactions.extension_listener()  # type: ignore
     async def on_message_create(self, ctx: interactions.Message) -> None:
@@ -200,4 +232,4 @@ class SessionManager(interactions.Extension):
 
 def setup(client):
     """Setup function for CopyCat cog"""
-    SessionManager(client)
+    SessionCommands(client)

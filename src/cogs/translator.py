@@ -4,7 +4,7 @@ import asyncio
 from dotenv import dotenv_values
 import interactions
 from deep_translator import GoogleTranslator
-from models.user import User
+from models.user import User  # pylint: disable=E0401
 from permissions import Permissions  # pylint: disable=import-error
 
 
@@ -31,7 +31,7 @@ class Translator(interactions.Extension):
         self.client: interactions.Client = client
 
     @interactions.extension_message_command(name="translate")
-    async def lang_input(self, ctx):
+    async def lang_input(self, ctx: interactions.ComponentContext):
         """Translate a message"""
         await ctx.defer()
 
@@ -56,23 +56,27 @@ class Translator(interactions.Extension):
         ).translate(ctx.target.content)
 
         embed = interactions.Embed(
-            title="Click to view original message",
+            title=f"""translated message to '{user.preferred_lang}'""",
             description=translated,
-            # add a field that says "Original message" and the original message
-            fields=[
-                interactions.EmbedField(
-                    name="Original message", value=ctx.target.content
-                )
-            ],
-            # make a link that links to the origingla message
-            url=f"https://discord.com/channels/{ctx.guild_id}/{ctx.channel_id}/{ctx.target.id}",
-            footer=interactions.EmbedFooter(
-                text=f"Original message author {ctx.target.author.username}",
+            # fields=[
+            #     interactions.EmbedField(
+            #         name="Original message", value=ctx.target.content
+            #     )
+            # ],
+            # link that links to the origingla message
+            author=interactions.EmbedAuthor(
+                url=f"https://discord.com/channels/{ctx.guild_id}/{ctx.channel_id}/{ctx.target.id}",
+                name=f"{ctx.target.author.username}",
                 icon_url=ctx.target.author.avatar_url,
+            ),
+            footer=interactions.EmbedFooter(
+                text="This message will be delete in 60 seconds"
             ),
             color=interactions.Color.fuchsia(),
         )
-        await ctx.send(embeds=[embed], ephemeral=True)
+        msg = await ctx.send(embeds=[embed], ephemeral=True)
+        await asyncio.sleep(60)
+        await msg.delete()
 
 
 def setup(client):
