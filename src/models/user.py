@@ -20,7 +20,7 @@ class User:
         name=None,
         user_id=None,
         discriminator=None,
-        preferred_lang=None,
+        preferred_lang="en",
         avatar_url=None,
         discord_user: interactions.User = None,  # type: ignore
     ) -> None:

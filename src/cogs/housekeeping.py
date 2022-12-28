@@ -12,6 +12,8 @@ pymongo_client = pymongo.MongoClient(os.environ.get("ATLAS_URI"))
 # get the database
 database = pymongo_client.server
 
+# TODO: Handle unused webhooks
+
 # setup a extension that has an event listener that is called when the bot receives a command
 class Housekeeping(interactions.Extension):
     """Extension class for housekeeping tasks"""
@@ -65,4 +67,3 @@ def setup(client):
     """Setup the housekeeping extension."""
     Housekeeping(client)
     print("Housekeeping extension loaded.")
-    

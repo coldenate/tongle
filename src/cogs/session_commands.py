@@ -2,11 +2,13 @@
 
 import os
 import interactions
+import asyncio
 import pymongo
 from deep_translator import GoogleTranslator
 from models.session import Session  # pylint: disable=import-error
+
 # from datetime import datetime, timedelta
-from models.user import User # pylint: disable=E0401
+from models.user import User  # pylint: disable=E0401
 
 
 pymongo_client = pymongo.MongoClient(os.environ.get("ATLAS_URI"))
@@ -54,127 +56,100 @@ class SessionCommands(interactions.Extension):
         author_user = User(discord_user=ctx.author.user)
         target_user = User(discord_user=user)
         author_user.search_db()
-        target_user.search_db()
+        test = target_user.search_db()
 
+        if test is None:
+            # The other user has not finished setting up their account in the bot.
+            await ctx.send(
+                "The other user has not finished setting up their account in the bot. Please ask them to run `/settings preferred_lang` and follow the instructions.",
+                ephemeral=True,
+            )
+            return
         # register the webhook
-        # check if the user already has a webhook
-        for webhook in await ctx.channel.get_webhooks():
-            if ctx.author.user.username == webhook.name:
-                # check if the webhook exists as a session in the database
-                session_as_doc = database.sessions.find_one(
-                    {"initiator.user_id": int(ctx.author.id)}
+        # check if the user is either the initiator or the receiver of a session AND if the session is in the channel
+        session_as_doc = database.sessions.find_one(
+            {
+                "$or": [
+                    {"initiator.user_id": int(ctx.author.id)},
+                    {"receiver.user_id": int(ctx.author.id)},
+                ],
+                "channel_id": int(ctx.channel_id),
+            }
+        )
+        if session_as_doc:
+            # if so, check if it expired or not
+            session = Session()
+            if session.check_if_expired(session_as_doc):
+                database.sessions.delete_one({"initiator.user_id": int(ctx.author.id)})
+                # an expired session was found, so the webhook was deleted and the document was deleted
+            elif session.check_if_expired(session_as_doc) is False:
+                await ctx.send(
+                    ephemeral=True,
+                    content="You already have an active session in this channel. Please end it before starting a new one.",
                 )
-                if session_as_doc:
-                    # if so, check if it expired or not
-                    session = Session()
-                    if session.check_if_expired(session_as_doc):
-                        await webhook.delete()
-                        database.sessions.delete_one(
-                            {"initiator.user_id": int(ctx.author.id)}
-                        )
-                        # an expired session was found, so the webhook was deleted and the document was deleted
-                        continue
-                    elif session.check_if_expired(session_as_doc) is False:
-                        await ctx.send(
-                            ephemeral=True,
-                            content="You already have an active session. Please end it before starting a new one.",
-                        )
-                        return
+                return
 
         await author_user.register_webhook(self.client, ctx.channel)
 
         # register the database
         # user.register_db()  # DEPRECATED
         # send a message to the user
-        await ctx.send(f"Session started for {author_user.name}!")
+        await ctx.send(
+            f"Session started for {author_user.name}!"
+        )  # TODO: convert this into a cool embed :)
         # create session object
         session = Session(author_user, target_user, ctx.guild_id, ctx.channel_id)
-        session.register_session(database=database)
+        object_id = session.register_session(database=database)
+        session.oid = object_id
         # ping the specified user that the author_user has requested to start a session with them. ask the user to type /accept_session
-        await ctx.send(
-            f"{user.mention}, {author_user.name} has requested to start a translation session with you! Type /accept_session to accept the session."
+        # TODO: Make this a button
+        inv = GoogleTranslator(
+            source="en", target=f"{target_user.preferred_lang}"
+        ).translate(
+            "has requested to start a translation with you! Please click the green button to accept! If the user does not accept within 5 minutes, the session will terminate."
         )
+        msg = await ctx.send(f"{user.mention}, {author_user.name} {inv}")
 
-    # @interactions.extension_command()
-    # async def copycat(self, ctx):
-    #     """CopyCat command to copy people's accounts!!! So scary!!!"""
-    #     # first, initialize the pseudo user
-    #     pseudo_user = PsuedoUser(name=ctx.author.name, user_id=ctx.author.id, agreed=True)
-    #     # register the pseudo user
-    #     await pseudo_user.register_webhook(self.client, ctx)
-    #     pseudo_user.register_db()
-    #     # send a message to the channel
-    #     await ctx.send(
-    #         content=f"Registered {pseudo_user.name} in {ctx.channel_id}",
-    #         ephemeral=True,
-    #     )
+        await asyncio.sleep(300)
+        # check if the session is still not accepted by finding with the object id
+        session.dict_to_session(database.sessions.find_one({"_id": session.oid}))
+        if session.accepted is False:
+            # if not, delete the session and send a message to the author_user
+            database.sessions.delete_one({"_id": session.oid})
+            inv = GoogleTranslator(
+                source="en", target=f"{target_user.preferred_lang}"
+            ).translate("Your session request has expired.")
+            await msg.edit(f"{user.mention}, {inv}")
 
-    @session.subcommand()
-    async def accept(self, ctx):
-        """Accept a session"""
-        # get the session from the database
-        # TODO: If there are multiple sessions, respond with the Session Manager in accept mode.
-        try:
-            session = Session()
-            session.get_session_acceptor(target=ctx.author.id, database=database)
+    # @session.subcommand()
+    # async def decline(self, ctx):
+    #     # TODO: If there are multiple sessions, respond with the Session Manager in decline mode.
+    #     """Decline a session"""
+    #     try:
+    #         session = Session()
+    #         session.get_session(database=database, target=ctx.author.id)
+    #     except TypeError:
+    #         await ctx.send(
+    #             "You do not have a session to decline! You can start on with /session start"
+    #         )
+    #         return
+    #     if session is None:
+    #         await ctx.send(
+    #             "You do not have a session to decline! You can start on with /session start"
+    #         )
+    #         return
+    #     # check if the user sending the command is the same user that initialized the session
+    #     if session.initiator.user_id == ctx.author.id:
+    #         await ctx.send(
+    #             "You are about to decline a session *you* started. Please do this by running the active session manager command.",
+    #             ephemeral=True,
+    #         )
+    #         return
+    #     # delete the session from the database
 
-        except TypeError:
-            await ctx.send(
-                "You do not have a session to accept! You can start on with /session start"
-            )
-            return
-        if session is None:
-            await ctx.send(
-                "You do not have a session to accept! You can start on with /session start"
-            )
-            return
+    #     await session.delete(self.client)
 
-        # check if the session is already accepted
-        if session.accepted:
-            await ctx.send("This session has already been accepted!")
-            return
-        # accept the session
-        session.accepted = True
-        # register the webhook
-        await session.receiver.register_webhook(self.client, ctx.channel)
-        # register the database
-        # session.target_user.register_db()  # DEPRECATED
-        session.sync_session(database=database)
-        # send a message to the author
-        await ctx.send(
-            f"Session accepted for {session.receiver.name}! You can now start translating!",
-            ephemeral=True,
-        )
-
-    @session.subcommand()
-    async def decline(self, ctx):
-        # TODO: If there are multiple sessions, respond with the Session Manager in decline mode.
-        """Decline a session"""
-        try:
-            session = Session()
-            session.get_session(ctx.author.id, database)
-        except TypeError:
-            await ctx.send(
-                "You do not have a session to decline! You can start on with /session start"
-            )
-            return
-        if session is None:
-            await ctx.send(
-                "You do not have a session to decline! You can start on with /session start"
-            )
-            return
-        # check if the user sending the command is the same user that initialized the session
-        if session.initiator.user_id == ctx.author.id:
-            await ctx.send(
-                "You are about to decline a session *you* started. Please do this by running the active session manager command.",
-                ephemeral=True,
-            )
-            return
-        # delete the session from the database
-
-        await session.delete(self.client)
-
-        await ctx.send("Session declined!", ephemeral=True)
+    #     await ctx.send("Session declined!", ephemeral=True)
 
     @interactions.extension_listener()  # type: ignore
     async def on_message_create(self, ctx: interactions.Message) -> None:
@@ -191,7 +166,9 @@ class SessionCommands(interactions.Extension):
             return
         session = Session()
         # check if the author is in a session
-        session.get_session(target=ctx.author.id, database=database)
+        session.get_session(
+            target=ctx.author, database=database, channel_id=ctx.channel_id
+        )
         if session is None:
             return
         # check if that session is not in this channel
@@ -211,7 +188,7 @@ class SessionCommands(interactions.Extension):
         original_message = ctx.content
         # delete the original message
         # get the other user's preferred language
-        other_user = session.get_other_user(ctx.author.id)
+        other_user = session.opposite_user(ctx.author.id)
         # translate the message
         translated_message = GoogleTranslator(
             source="auto", target=other_user.preferred_lang

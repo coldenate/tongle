@@ -8,6 +8,7 @@ from datetime import datetime
 from models.user import User  # pylint: disable=import-error
 import pymongo
 import os
+from bson.objectid import ObjectId
 
 pymongo_client = pymongo.MongoClient(os.environ.get("ATLAS_URI"))
 
@@ -40,10 +41,14 @@ class Session:
         # an expiration date for the session using timedelta
         self.expiration_date: timedelta = expiration_date
 
+        self.oid: ObjectId = None  # IMPORTANT: this value is only created by MongoDB
+
+        # attempt to pull from MongoDB
+
     def refresh_expiration_date(self, target_database):
         """Refresh the expiration date of the session"""
         self.expiration_date = datetime.now() + timedelta(hours=2)
-        self.sync_session(target_database)
+        self.push_session(target_database)
 
     # consructor method that takes in a dictionary and returns a Session object
     # @classmethod
@@ -91,19 +96,20 @@ class Session:
             "expiration_date": self.expiration_date,
         }
 
-    def sync_session(self, database):
-        """Sync the session in the database"""
+    def push_session(self, database):
+        """pushing the session in the database"""
         sessions = database.sessions
 
         sessions.update_one(
-            {"initiator.user_id": self.initiator.user_id},
+            {"_id": self.oid},
             {"$set": self.convert_to_dict()},
         )
 
     def register_session(self, database):
         """Register the session in the database"""
         sessions = database.sessions
-        sessions.insert_one(self.convert_to_dict())
+        inserted_id = sessions.insert_one(self.convert_to_dict()).inserted_id
+        return inserted_id
 
     def dict_to_session(self, session_dict):
         """Convert a dictionary to a Session object"""
@@ -125,26 +131,80 @@ class Session:
             "expiration_date"
         ]  # will be a datetime object
         self.accepted = session_dict["accepted"]
+        self.oid = session_dict["_id"]
 
-    def get_session(self, target: int, database):
-        """Get the session from the database. THIS METHOD WILL GET THE SESSION BY SEARCHING FOR MATCHING TARGET IDS VIA INITIATOR AND RECEIVER"""
+    # def get_session(self, database, oid: ObjectId):
+    #     """Get the session from the database. THIS METHOD WILL GET THE SESSION BY SEARCHING FOR MATCHING TARGET IDS VIA INITIATOR AND RECEIVER"""
+    #     sessions = database.sessions
+    #     session_as_doc = sessions.find_one({"_id": self.oid})
+    #     if session_as_doc is None:
+    #         return None
+    #     self.dict_to_session(session_as_doc)
+
+    def get_session(self, database, channel_id, target):
+        """Get a session, by searching the database for a session with a matching channel id and target user id"""
+
         sessions = database.sessions
-        session_as_doc = sessions.find_one({"initiator.user_id": int(target)})
-        if session_as_doc is None:
-            session_as_doc = sessions.find_one({"receiver.user_id": int(target)})
+        session_as_doc = sessions.find_one(
+            {
+                "$and": [
+                    {"channel_id": int(channel_id)},
+                    {
+                        "$or": [
+                            {"initiator.user_id": int(target.id)},
+                            {"receiver.user_id": int(target.id)},
+                        ]
+                    },
+                ]
+            }
+        )
         if session_as_doc is None:
             return None
         self.dict_to_session(session_as_doc)
 
-    def get_session_acceptor(self, target, database):
-        """Get the sessions the target user needs to accept. THIS METHOD WILL GET THE SESSION BY SEARCHING FOR MATCHING TARGET IDS VIA RECEIVER"""
+    def get_sessions(self, database, target_user: interactions.User):
+        """Get all the sessions that a given user is apart of."""
         sessions = database.sessions
-        session_as_doc = sessions.find_one({"receiver.user_id": int(target)})
-        if session_as_doc is None:
+        # find all sesisons where the initiator or receiver is the target user
+        session_as_docs = sessions.find(
+            {
+                "$or": [
+                    {"initiator.user_id": target_user.id},
+                    {"receiver.user_id": target_user.id},
+                ]
+            }
+        )
+        if session_as_docs is None:
             return None
-        self.dict_to_session(session_as_doc)
 
-    def get_other_user(self, given_id):
+        sessions = []
+        for session in session_as_docs:
+            sessions.append(self.dict_to_session(session))
+
+        return sessions
+
+    def get_sessions_to_accept(self, database, target_user: interactions.User):
+        """Get all the sessions that the user is a receiver of, and needs to accept."""
+        sessions = database.sessions
+        # find all sesisons where the initiator or receiver is the target user
+        session_as_docs = sessions.find(
+            {
+                "$and": [
+                    {"receiver.user_id": target_user.id},
+                    {"accepted": False},
+                ]
+            }
+        )
+        if session_as_docs is None:
+            return None
+
+        sessions = []
+        for session in session_as_docs:
+            sessions.append(self.dict_to_session(session))
+
+        return sessions
+
+    def opposite_user(self, given_id):
         """Return the initiator or receiver that is not the given id"""
         if self.initiator.user_id == given_id:
             return self.receiver
