@@ -128,3 +128,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 # Bump railway
+src/dev.env
+src/.dev.env
+src/.prod.env

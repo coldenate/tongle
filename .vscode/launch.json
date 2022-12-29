@@ -5,11 +5,21 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Start Main.py",
+			"name": "Start Tongle (development)",
 			"type": "python",
 			"request": "launch",
 			"program": "${workspaceFolder}/src/main.py",
 			"console": "integratedTerminal",
+			"envFile": "${workspaceFolder}/src/.dev.env",
+			"justMyCode": true
+		},
+		{
+			"name": "Start Tongle (production)",
+			"type": "python",
+			"request": "launch",
+			"program": "${workspaceFolder}/src/main.py",
+			"console": "integratedTerminal",
+			"envFile": "${workspaceFolder}/src/.prod.env",
 			"justMyCode": true
 		}
 	]
