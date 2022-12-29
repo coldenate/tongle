@@ -1,2 +1,8 @@
 [phases.setup]
-nixPkgs = ["gcc", "python310Full"]
+nixPkgs = ["gcc", "python311"]
+
+[phases.install]
+cmds = ["python -m venv /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt"]
+
+[phases.start]
+cmd="python -m venv /opt/venv && . /opt/venv/bin/activate && python src/main.py"

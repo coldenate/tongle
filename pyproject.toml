@@ -12,14 +12,10 @@ python-dotenv = "^0.21.0"
 discord-py-interactions = "^4.3.4"
 interactions-wait-for = "^1.0.6"
 pymongo = {extras = ["srv"], version = "^4.3.2"}
-
-[tool.poetry.dev-dependencies]
-black = "^22.8.0"
-isort = "^5.10.1"
-
-[tool.poetry.group.dev.dependencies]
 pylint = "^2.15.5"
 isort = "^5.10.1"
+black = "^22.12.0"
+
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
