@@ -53,7 +53,7 @@ class SessionCommands(interactions.Extension):
         # )  # the user that was selected
 
         # get the users from the database
-        # TODO: Handle if the user doesn't exist in the database
+
         author_user = User(discord_user=ctx.author.user)
         target_user = User(discord_user=user)
         author_user.search_db()
@@ -109,7 +109,6 @@ class SessionCommands(interactions.Extension):
         object_id = session.register_session(database=database)
         session.oid = object_id
         # ping the specified user that the author_user has requested to start a session with them. ask the user to type /accept_session
-        # TODO: Make this a button
         inv = GoogleTranslator(
             source="en", target=f"{target_user.preferred_lang}"
         ).translate(
@@ -195,35 +194,6 @@ class SessionCommands(interactions.Extension):
             await ctx.send("Accepted Session.", ephemeral=True)
             return
 
-    # @session.subcommand()
-    # async def decline(self, ctx):
-    #     # TODO: If there are multiple sessions, respond with the Session Manager in decline mode.
-    #     """Decline a session"""
-    #     try:
-    #         session = Session()
-    #         session.get_session(database=database, target=ctx.author.id)
-    #     except TypeError:
-    #         await ctx.send(
-    #             "You do not have a session to decline! You can start on with /session start"
-    #         )
-    #         return
-    #     if session is None:
-    #         await ctx.send(
-    #             "You do not have a session to decline! You can start on with /session start"
-    #         )
-    #         return
-    #     # check if the user sending the command is the same user that initialized the session
-    #     if session.initiator.user_id == ctx.author.id:
-    #         await ctx.send(
-    #             "You are about to decline a session *you* started. Please do this by running the active session manager command.",
-    #             ephemeral=True,
-    #         )
-    #         return
-    #     # delete the session from the database
-
-    #     await session.delete(self.client)
-
-    #     await ctx.send("Session declined!", ephemeral=True)
 
     @interactions.extension_command(name="session_spam")
     async def create_50_sessions_with_fake_cghannel_ids(

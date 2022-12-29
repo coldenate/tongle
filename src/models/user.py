@@ -85,7 +85,7 @@ class User:
 
     async def register_webhook(self, client, channel: interactions.Channel):
         """Register the PseudoUser by creating a webhook with interactions."""
-        # TODO: Would here be a good timet o check for duplicates?
+        # FIXME: Would here be a good timet o check for duplicates?
         user = await interactions.Webhook.create(
             client=client._http,  # pylint: disable=protected-access
             channel_id=channel.id,
@@ -164,7 +164,7 @@ class User:
         self.populate_from_mongodb(doc)
 
     # convert a dictionary to a PsuedoUser object
-    # TODO: convert to a self method where it simply updates itself with a given dict
+    # TODO: add a auto construxtion in the __init__ method
     @classmethod
     def dict_to_user(cls, user_dict):
         """Convert a dictionary to a PsuedoUser object"""
