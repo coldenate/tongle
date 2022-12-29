@@ -6,6 +6,7 @@ import asyncio
 import pymongo
 from deep_translator import GoogleTranslator
 from models.session import Session  # pylint: disable=import-error
+from bson import ObjectId
 
 # from datetime import datetime, timedelta
 from models.user import User  # pylint: disable=E0401
@@ -98,7 +99,13 @@ class SessionCommands(interactions.Extension):
             f"Session started for {author_user.name}!"
         )  # TODO: convert this into a cool embed :)
         # create session object
-        session = Session(author_user, target_user, ctx.guild_id, ctx.channel_id)
+        session = Session(
+            author_user,
+            target_user,
+            ctx.guild_id,
+            ctx.channel_id,
+            channel_name=ctx.channel.name,
+        )
         object_id = session.register_session(database=database)
         session.oid = object_id
         # ping the specified user that the author_user has requested to start a session with them. ask the user to type /accept_session
@@ -108,7 +115,27 @@ class SessionCommands(interactions.Extension):
         ).translate(
             "has requested to start a translation with you! Please click the green button to accept! If the user does not accept within 5 minutes, the session will terminate."
         )
-        msg = await ctx.send(f"{user.mention}, {author_user.name} {inv}")
+        # Accept or decline buttons
+
+        row = interactions.ActionRow(
+            components=[
+                interactions.Button(
+                    style=interactions.ButtonStyle.SUCCESS,
+                    label="Yes",
+                    custom_id=f"accept_session_{session.oid}",
+                ),
+                interactions.Button(
+                    style=interactions.ButtonStyle.DANGER,
+                    label="No",
+                    custom_id=f"decline_session_{session.oid}",
+                ),
+            ]
+        )
+
+        msg = await ctx.send(
+            f"{user.mention}, {author_user.name} {inv}. Anyone in this session can click `No`",
+            components=[row],
+        )
 
         await asyncio.sleep(300)
         # check if the session is still not accepted by finding with the object id
@@ -120,6 +147,53 @@ class SessionCommands(interactions.Extension):
                 source="en", target=f"{target_user.preferred_lang}"
             ).translate("Your session request has expired.")
             await msg.edit(f"{user.mention}, {inv}")
+
+    @interactions.extension_listener()
+    async def on_component(self, ctx: interactions.ComponentContext):
+        """Handles the accept and decline buttons"""
+        if not (
+            ctx.custom_id.startswith("accept_session_")
+            or ctx.custom_id.startswith("decline_session_")
+        ):
+            return
+        # get the session from the database
+        session = Session(
+            dict_convert=database.sessions.find_one(
+                {"_id": ObjectId(oid=str(ctx.custom_id.split("_")[2]))}
+            )
+        )
+        # check if the user is the initiator of the session
+        if (session.initiator.user_id == ctx.author.id) and (
+            ctx.custom_id.startswith("accept_session_")
+        ):
+            await ctx.send(
+                "You cannot accept your own session! Please ask someone else to accept it.",
+                ephemeral=True,
+            )
+            return
+        elif (session.initiator.user_id == ctx.author.id) and (
+            ctx.custom_id.startswith("decline_session_")
+        ):
+            database.sessions.delete_one({"_id": session.oid})
+            await ctx.send(
+                "Terminated Session. The other user has still been notified. It is courteous to notify them.",
+                ephemeral=True,
+            )
+            return
+        # check if the user is the receiver of the session
+        if (session.receiver.user_id == ctx.author.id) and (
+            ctx.custom_id.startswith("decline_session_")
+        ):
+            database.sessions.delete_one({"_id": session.oid})
+            await ctx.send("Declined Session.", ephemeral=True)
+            return
+        elif (session.receiver.user_id == ctx.author.id) and (
+            ctx.custom_id.startswith("accept_session_")
+        ):
+            session.accepted = True
+            session.push_session(database)
+            await ctx.send("Accepted Session.", ephemeral=True)
+            return
 
     # @session.subcommand()
     # async def decline(self, ctx):
@@ -150,6 +224,21 @@ class SessionCommands(interactions.Extension):
     #     await session.delete(self.client)
 
     #     await ctx.send("Session declined!", ephemeral=True)
+
+    @interactions.extension_command(name="session_spam")
+    async def create_50_sessions_with_fake_cghannel_ids(
+        self, ctx: interactions.CommandContext
+    ) -> None:
+        """Create 50 sessions with fake channel ids"""
+        for i in range(50):
+            session = Session(
+                initiator=User(discord_user=ctx.author.user),
+                receiver=User(discord_user=ctx.author.user),
+                guild_id=int(ctx.guild_id),
+                channel_id=int(ctx.channel_id) + i,
+                channel_name=ctx.channel.name,
+            )
+            session.register_session(database=database)
 
     @interactions.extension_listener()  # type: ignore
     async def on_message_create(self, ctx: interactions.Message) -> None:

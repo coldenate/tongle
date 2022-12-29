@@ -26,11 +26,18 @@ class Session:
         channel_id: int | interactions.Snowflake = None,
         accepted: bool = False,
         expiration_date: timedelta = timedelta(hours=2),
+        channel_name: str | None = None,
+        dict_convert=None,
     ) -> None:
+        """Initialize the session object"""
+        if dict_convert is not None:
+            self.dict_to_session(dict_convert)
+            return
         self.initiator: User = initiator
         self.receiver: User | None = receiver
         self.guild_id: int | interactions.Snowflake = guild_id
         self.channel_id: int | interactions.Snowflake = channel_id
+        self.channel_name: str | None = channel_name
         # if the guild id is a snowflake, convert it to an int
         if isinstance(guild_id, interactions.Snowflake):
             self.guild_id: int = int(guild_id)
@@ -42,6 +49,7 @@ class Session:
         self.expiration_date: timedelta = expiration_date
 
         self.oid: ObjectId = None  # IMPORTANT: this value is only created by MongoDB
+        self.paused: bool | None = False
 
         # attempt to pull from MongoDB
 
@@ -94,13 +102,15 @@ class Session:
             "channel_id": int(self.channel_id),
             "accepted": self.accepted,
             "expiration_date": self.expiration_date,
+            "paused": self.paused,
+            "channel_name": self.channel_name,
         }
 
     def push_session(self, database):
         """pushing the session in the database"""
         sessions = database.sessions
 
-        sessions.update_one(
+        return sessions.update_one(
             {"_id": self.oid},
             {"$set": self.convert_to_dict()},
         )
@@ -132,6 +142,8 @@ class Session:
         ]  # will be a datetime object
         self.accepted = session_dict["accepted"]
         self.oid = session_dict["_id"]
+        self.paused = session_dict["paused"]
+        self.channel_name = session_dict["channel_name"]
 
     # def get_session(self, database, oid: ObjectId):
     #     """Get the session from the database. THIS METHOD WILL GET THE SESSION BY SEARCHING FOR MATCHING TARGET IDS VIA INITIATOR AND RECEIVER"""

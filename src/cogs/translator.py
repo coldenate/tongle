@@ -30,10 +30,26 @@ class Translator(interactions.Extension):
     def __init__(self, client):
         self.client: interactions.Client = client
 
-    @interactions.extension_message_command(name="translate")
-    async def lang_input(self, ctx: interactions.ComponentContext):
+    @interactions.extension_message_command(name="translate (public)")
+    async def translate_message_command_non_hidden(
+        self, ctx: interactions.ComponentContext
+    ):
         """Translate a message"""
-        await ctx.defer()
+        await self.lang_input(ctx, False)
+
+    @interactions.extension_message_command(name="translate (private)")
+    async def translate_message_command_hidden(
+        self, ctx: interactions.ComponentContext
+    ):
+        """Translate a message"""
+        await self.lang_input(ctx, True)
+
+    async def lang_input(self, ctx: interactions.ComponentContext, hidden_mode: bool):
+        """Translate a message"""
+        if hidden_mode is False:
+            await ctx.defer()
+        if hidden_mode:
+            await ctx.defer(ephemeral=True)
 
         # get user's configurated language
         user = User(discord_user=ctx.author.user)
@@ -74,7 +90,7 @@ class Translator(interactions.Extension):
             ),
             color=interactions.Color.fuchsia(),
         )
-        msg = await ctx.send(embeds=[embed], ephemeral=True)
+        msg = await ctx.send(embeds=[embed])
         await asyncio.sleep(60)
         await msg.delete()
 
