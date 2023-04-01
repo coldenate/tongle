@@ -16,6 +16,9 @@ pymongo_client = pymongo.MongoClient(os.environ.get("ATLAS_URI"))
 
 database = pymongo_client.server
 
+DEV_MODE = bool(os.environ.get("DEV_MODE") == "True")
+
+
 
 class SessionCommands(interactions.Extension):
     """CopyCat cog to copy people's accounts!!! So scary!!!"""
@@ -194,21 +197,22 @@ class SessionCommands(interactions.Extension):
             await ctx.send("Accepted Session.", ephemeral=True)
             return
 
-
-    @interactions.extension_command(name="session_spam")
-    async def create_50_sessions_with_fake_cghannel_ids(
-        self, ctx: interactions.CommandContext
-    ) -> None:
-        """Create 50 sessions with fake channel ids"""
-        for i in range(50):
-            session = Session(
-                initiator=User(discord_user=ctx.author.user),
-                receiver=User(discord_user=ctx.author.user),
-                guild_id=int(ctx.guild_id),
-                channel_id=int(ctx.channel_id) + i,
-                channel_name=ctx.channel.name,
-            )
-            session.register_session(database=database)
+    # if DEV_MODE:
+    #     print("initialising hack commands for testing purposes")
+    #     @interactions.extension_command(name="session_spam")
+    #     async def create_50_sessions_with_fake_cghannel_ids(
+    #         self, ctx: interactions.CommandContext
+    #     ) -> None:
+    #         """Create 50 sessions with fake channel ids"""
+    #         for i in range(50):
+    #             session = Session(
+    #                 initiator=User(discord_user=ctx.author.user),
+    #                 receiver=User(discord_user=ctx.author.user),
+    #                 guild_id=int(ctx.guild_id),
+    #                 channel_id=int(ctx.channel_id) + i,
+    #                 channel_name=ctx.channel.name,
+    #             )
+    #             session.register_session(database=database)
 
     @interactions.extension_listener()  # type: ignore
     async def on_message_create(self, ctx: interactions.Message) -> None:
