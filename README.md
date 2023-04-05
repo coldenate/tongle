@@ -10,8 +10,6 @@ Name inspiration. plus the fact that tongue+toggle
 
 ## Features
 
-<details><summary>Preferred Language Message Command Translation</summary><video src=“https://youtu.be/R8fJX7MbSpE”></details>
-
 ### Message Interception
 
 > The message interception will work until configured to not work. Webhook will do its best to state that it is a translation. Using: https://github.com/nidhaloff/deep-translator
